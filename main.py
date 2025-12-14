@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import joblib
 import pandas as pd
+import numpy as np
 
 app = FastAPI(title="Churn Prediction API")
 
@@ -11,10 +12,10 @@ try:
 except Exception as e:
     raise RuntimeError(f"Model loading failed: {e}")
 
-# Input schema
+# Input schema (STRICTLY numeric)
 class ChurnInput(BaseModel):
     Age: int
-    LoginFrequency: float
+    LoginFrequency: int
     AvgSessionTime: float
     SupportTickets: int
     Gender_M: int
@@ -28,12 +29,33 @@ def health_check():
 @app.post("/predict")
 def predict_churn(data: ChurnInput):
     try:
-        df = pd.DataFrame([data.dict()])
-        prediction = model.predict(df)[0]
+        # Convert input to DataFrame with correct column order
+        input_df = pd.DataFrame([{
+            "Age": data.Age,
+            "LoginFrequency": data.LoginFrequency,
+            "AvgSessionTime": data.AvgSessionTime,
+            "SupportTickets": data.SupportTickets,
+            "Gender_M": data.Gender_M,
+            "SubscriptionType_Premium": data.SubscriptionType_Premium,
+            "SubscriptionType_VIP": data.SubscriptionType_VIP
+        }])
+
+        # Prediction
+        churn_pred = model.predict(input_df)[0]
+
+        # Probability (if supported)
+        if hasattr(model, "predict_proba"):
+            churn_prob = model.predict_proba(input_df)[0][1]
+        else:
+            churn_prob = None
 
         return {
-            "prediction": int(prediction),
-            "churn_probability": float(prediction)
+            "churn_prediction": int(churn_pred),
+            "churn_probability": churn_prob
         }
+
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(
+            status_code=400,
+            detail=f"Inference failed: {str(e)}"
+        )
