@@ -13,6 +13,9 @@ data = pd.get_dummies(data, columns=["Gender", "SubscriptionType"])
 X = data[["Age", "LoginFrequency", "AvgSessionTime", "SupportTickets",
           "Gender_M", "SubscriptionType_Premium", "SubscriptionType_VIP"]]
 
+# FIX: Convert target to numeric
+data["Churned"] = data["Churned"].map({"Yes": 1, "No": 0})
+
 # Target - replace 'churn' with your actual column name
 y = data["Churned"]
 
@@ -26,3 +29,4 @@ model.fit(X_train, y_train)
 # Save model
 joblib.dump(model, "churn_model.pkl")
 print("Model trained and saved!")
+
